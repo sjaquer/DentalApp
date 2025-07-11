@@ -62,9 +62,16 @@ export const usePendingBills = () => {
 
   const updateBill = async (billId: string, boletaCodigo: string) => {
     try {
+      // Normalize code to match database casing
+      const normalizedCode = boletaCodigo.toLowerCase();
+
       const { error } = await supabase
         .from('tratamiento')
-        .update({ boletacodigo: boletaCodigo })
+        .update({
+          boletacodigo: normalizedCode,
+          estado: 'completado',
+          fechacompletado: new Date().toISOString()
+        })
         .eq('id', billId);
 
       if (error) throw error;
