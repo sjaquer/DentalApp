@@ -69,6 +69,7 @@ export const usePendingBills = () => {
         .from('tratamiento')
         .update({
           boletacodigo: normalizedCode,
+          boletacodigo: boletaCodigo,
           estado: 'completado',
           fechacompletado: new Date().toISOString()
         })
