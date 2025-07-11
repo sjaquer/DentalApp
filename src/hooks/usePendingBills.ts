@@ -1,48 +1,60 @@
 import { useState, useEffect } from 'react';
-import { Treatment } from '../types';
+import { Treatment, Patient } from '../types';
+import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 
+interface TreatmentWithPatient extends Treatment {
+  numeroHistoria?: string;
+  nombreCompleto?: string;
+}
+
 export const usePendingBills = () => {
-  const [bills, setBills] = useState<Treatment[]>([]);
+  const [bills, setBills] = useState<TreatmentWithPatient[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchPendingBills = async () => {
+    setLoading(true);
     try {
-      // Simular datos de boletas pendientes
-      const mockBills: Treatment[] = [
-        {
-          id: '1',
-          pacienteId: '1',
-          tipo: 'profilaxis',
-          descripcion: 'Limpieza dental completa',
-          fechaAgendada: new Date().toISOString(),
-          estado: 'completado',
-          piezaDental: 'Todos los dientes',
-          costo: 150.00,
-          duracionMinutos: 45,
-          fechaCreacion: new Date().toISOString(),
-          fechaActualizacion: new Date().toISOString(),
-          numeroHistoria: 'HC-2024-001'
-        },
-        {
-          id: '2',
-          pacienteId: '2',
-          tipo: 'restauracion',
-          descripcion: 'Resina en molar',
-          fechaAgendada: new Date().toISOString(),
-          estado: 'completado',
-          piezaDental: '1.6',
-          costo: 200.00,
-          duracionMinutos: 60,
-          fechaCreacion: new Date().toISOString(),
-          fechaActualizacion: new Date().toISOString(),
-          numeroHistoria: 'HC-2024-002'
-        }
-      ];
+      // Get completed treatments without boleta code
+      const { data, error } = await supabase
+        .from('tratamiento')
+        .select(`
+          *,
+          paciente:pacienteid (
+            numerohistoria,
+            nombres,
+            apellidos
+          )
+        `)
+        .eq('estado', 'completado')
+        .is('boletacodigo', null);
 
-      setBills(mockBills);
+      if (error) throw error;
+
+      // Transform data to match frontend interface
+      const transformedBills = (data || []).map(bill => ({
+        id: bill.id,
+        pacienteId: bill.pacienteid,
+        tipo: bill.tipo,
+        descripcion: bill.descripcion,
+        fechaAgendada: bill.fechaagendada,
+        estado: bill.estado,
+        piezaDental: bill.piezadental,
+        boletaCodigo: bill.boletacodigo,
+        fechaCompletado: bill.fechacompletado,
+        costo: bill.costo,
+        duracionMinutos: bill.duracionminutos,
+        fechaCreacion: bill.fechacreacion,
+        fechaActualizacion: bill.fechaactualizacion,
+        numeroHistoria: bill.paciente?.numerohistoria,
+        nombreCompleto: bill.paciente ? `${bill.paciente.nombres} ${bill.paciente.apellidos}` : 'N/A'
+      }));
+
+      setBills(transformedBills);
     } catch (error) {
       console.error('Error fetching pending bills:', error);
+      toast.error('Error al cargar las boletas pendientes');
+      setBills([]);
     } finally {
       setLoading(false);
     }
@@ -50,15 +62,21 @@ export const usePendingBills = () => {
 
   const updateBill = async (billId: string, boletaCodigo: string) => {
     try {
-      // Simular actualización de boleta
-      setBills(prevBills => 
-        prevBills.filter(bill => bill.id !== billId)
-      );
+      const { error } = await supabase
+        .from('tratamiento')
+        .update({ boletacodigo: boletaCodigo })
+        .eq('id', billId);
+
+      if (error) throw error;
+      
+      // Remove from pending bills list
+      setBills(prevBills => prevBills.filter(bill => bill.id !== billId));
       
       toast.success('Boleta registrada exitosamente');
     } catch (error) {
       console.error('Error updating bill:', error);
       toast.error('Error al registrar la boleta');
+      throw error;
     }
   };
 

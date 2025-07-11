@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, User, Phone, Mail, Calendar, AlertTriangle, Heart, CalendarPlus } from 'lucide-react';
 import { Patient } from '../types';
+import { usePatients } from '../hooks/usePatients';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import toast from 'react-hot-toast';
-import { supabase } from '../lib/supabase';
 import AppointmentModal from './AppointmentModal';
 
 interface PatientModalProps {
@@ -37,6 +37,7 @@ const PatientModal: React.FC<PatientModalProps> = ({
 }) => {
   const [loading, setLoading] = useState(false);
   const [isAppointmentModalOpen, setIsAppointmentModalOpen] = useState(false);
+  const { createPatient, updatePatient } = usePatients();
 
   const {
     register,
@@ -72,38 +73,38 @@ const PatientModal: React.FC<PatientModalProps> = ({
     setLoading(true);
     try {
       const patientData = {
-        ...data,
+        numeroHistoria: data.numeroHistoria,
+        nombres: data.nombres,
+        apellidos: data.apellidos,
+        fechaNacimiento: data.fechaNacimiento,
+        celular: data.celular,
+        email: data.email || null,
         alergias: data.alergias ? data.alergias.split(',').map((item: string) => item.trim()) : [],
         enfermedadesSistemicas: data.enfermedadesSistemicas ? data.enfermedadesSistemicas.split(',').map((item: string) => item.trim()) : [],
-        fechaActualizacion: new Date().toISOString()
+        religion: data.religion || null
       };
 
       if (isNewPatient) {
-        // Crear nuevo paciente
-        const { error } = await supabase
-          .from('Paciente')
-          .insert([{
-            ...patientData,
-            fechaCreacion: new Date().toISOString()
-          }]);
-
-        if (error) throw error;
+        await createPatient(patientData);
         toast.success('Paciente creado exitosamente');
       } else {
-        // Actualizar paciente existente
-        const { error } = await supabase
-          .from('Paciente')
-          .update(patientData)
-          .eq('id', patient?.id);
-
-        if (error) throw error;
+        if (!patient?.id) throw new Error('ID de paciente no encontrado');
+        await updatePatient(patient.id, patientData);
         toast.success('Paciente actualizado exitosamente');
       }
 
       onSave();
     } catch (error) {
       console.error('Error saving patient:', error);
-      toast.error('Error al guardar el paciente');
+      if (error instanceof Error) {
+        if (error.message.includes('duplicate key')) {
+          toast.error('Ya existe un paciente con ese número de historia o celular');
+        } else {
+          toast.error('Error al guardar el paciente: ' + error.message);
+        }
+      } else {
+        toast.error('Error al guardar el paciente');
+      }
     } finally {
       setLoading(false);
     }

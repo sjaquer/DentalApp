@@ -13,7 +13,7 @@ const AppointmentCalendar: React.FC = () => {
   const formatEvents = () => {
     return appointments.map(appointment => ({
       id: appointment.id,
-      title: `${appointment.tipo} - ${appointment.numeroHistoria || 'N/A'}`,
+      title: `${appointment.tipo} - ${appointment.nombreCompleto || 'N/A'}`,
       start: appointment.fechaAgendada,
       backgroundColor: getEventColor(appointment.estado),
       borderColor: getEventColor(appointment.estado),
@@ -113,6 +113,9 @@ const AppointmentCalendar: React.FC = () => {
               </div>
               <div>
                 <strong>Paciente:</strong> {selectedEvent.numeroHistoria || 'N/A'}
+              </div>
+              <div>
+                <strong>Nombre:</strong> {selectedEvent.nombreCompleto || 'N/A'}
               </div>
               <div>
                 <strong>Fecha:</strong> {new Date(selectedEvent.fechaAgendada).toLocaleString()}

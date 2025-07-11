@@ -1,64 +1,87 @@
 import { useState, useEffect } from 'react';
 import { Treatment } from '../types';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
+
+interface TreatmentWithPatient extends Treatment {
+  numeroHistoria?: string;
+  nombreCompleto?: string;
+}
 
 export const useAppointments = () => {
-  const [appointments, setAppointments] = useState<Treatment[]>([]);
+  const [appointments, setAppointments] = useState<TreatmentWithPatient[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchAppointments = async () => {
+    setLoading(true);
     try {
-      // Simular datos de citas
-      const now = new Date();
-      const mockAppointments: Treatment[] = [
-        {
-          id: '1',
-          pacienteId: '1',
-          tipo: 'profilaxis',
-          descripcion: 'Limpieza dental',
-          fechaAgendada: new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString(),
-          estado: 'confirmado',
-          piezaDental: 'Todos los dientes',
-          costo: 150.00,
-          duracionMinutos: 45,
-          fechaCreacion: new Date().toISOString(),
-          fechaActualizacion: new Date().toISOString(),
-          numeroHistoria: 'HC-2024-001'
-        },
-        {
-          id: '2',
-          pacienteId: '2',
-          tipo: 'restauracion',
-          descripcion: 'Restauración molar',
-          fechaAgendada: new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString(),
-          estado: 'pendiente',
-          piezaDental: '1.6',
-          costo: 200.00,
-          duracionMinutos: 60,
-          fechaCreacion: new Date().toISOString(),
-          fechaActualizacion: new Date().toISOString(),
-          numeroHistoria: 'HC-2024-002'
-        },
-        {
-          id: '3',
-          pacienteId: '3',
-          tipo: 'endodoncia',
-          descripcion: 'Tratamiento de conducto',
-          fechaAgendada: new Date(now.getTime() + 72 * 60 * 60 * 1000).toISOString(),
-          estado: 'pendiente',
-          piezaDental: '2.1',
-          costo: 400.00,
-          duracionMinutos: 90,
-          fechaCreacion: new Date().toISOString(),
-          fechaActualizacion: new Date().toISOString(),
-          numeroHistoria: 'HC-2024-003'
-        }
-      ];
+      // Get scheduled appointments (pending, confirmed, or completed in the future)
+      const { data, error } = await supabase
+        .from('tratamiento')
+        .select(`
+          *,
+          paciente:pacienteid (
+            numerohistoria,
+            nombres,
+            apellidos
+          )
+        `)
+        .in('estado', ['pendiente', 'confirmado', 'completado'])
+        .order('fechaagendada', { ascending: true });
 
-      setAppointments(mockAppointments);
+      if (error) throw error;
+
+      // Transform data to match frontend interface
+      const transformedAppointments = (data || []).map(appointment => ({
+        id: appointment.id,
+        pacienteId: appointment.pacienteid,
+        tipo: appointment.tipo,
+        descripcion: appointment.descripcion,
+        fechaAgendada: appointment.fechaagendada,
+        estado: appointment.estado,
+        piezaDental: appointment.piezadental,
+        boletaCodigo: appointment.boletacodigo,
+        fechaCompletado: appointment.fechacompletado,
+        costo: appointment.costo,
+        duracionMinutos: appointment.duracionminutos,
+        fechaCreacion: appointment.fechacreacion,
+        fechaActualizacion: appointment.fechaactualizacion,
+        numeroHistoria: appointment.paciente?.numerohistoria,
+        nombreCompleto: appointment.paciente ? `${appointment.paciente.nombres} ${appointment.paciente.apellidos}` : 'N/A'
+      }));
+
+      setAppointments(transformedAppointments);
     } catch (error) {
       console.error('Error fetching appointments:', error);
+      toast.error('Error al cargar las citas');
+      setAppointments([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const updateAppointmentStatus = async (appointmentId: string, newStatus: string) => {
+    try {
+      const updateData: any = { estado: newStatus };
+      
+      // If marking as completed, set completion date
+      if (newStatus === 'completado') {
+        updateData.fechacompletado = new Date().toISOString();
+      }
+
+      const { error } = await supabase
+        .from('tratamiento')
+        .update(updateData)
+        .eq('id', appointmentId);
+
+      if (error) throw error;
+      
+      await fetchAppointments(); // Refresh the list
+      toast.success('Estado de cita actualizado');
+    } catch (error) {
+      console.error('Error updating appointment status:', error);
+      toast.error('Error al actualizar el estado de la cita');
+      throw error;
     }
   };
 
@@ -66,5 +89,10 @@ export const useAppointments = () => {
     fetchAppointments();
   }, []);
 
-  return { appointments, loading };
+  return { 
+    appointments, 
+    loading, 
+    refreshAppointments: fetchAppointments,
+    updateAppointmentStatus 
+  };
 };

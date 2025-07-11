@@ -58,10 +58,13 @@ const PendingBillsList: React.FC = () => {
                 </div>
                 <div>
                   <h4 className="font-medium text-gray-900">
-                    HC: {bill.numeroHistoria || 'N/A'}
+                    {bill.nombreCompleto || 'N/A'}
                   </h4>
                   <p className="text-sm text-gray-600">
-                    {bill.tipo} - {bill.piezaDental || 'N/A'}
+                    HC: {bill.numeroHistoria || 'N/A'} - {bill.tipo}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Pieza: {bill.piezaDental || 'N/A'}
                   </p>
                 </div>
               </div>

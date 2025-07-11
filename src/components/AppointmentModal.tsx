@@ -7,7 +7,6 @@ import * as yup from 'yup';
 import toast from 'react-hot-toast';
 import { supabase } from '../lib/supabase';
 import { format, addDays, startOfDay, isBefore, isWeekend } from 'date-fns';
-import { es } from 'date-fns/locale';
 
 interface AppointmentModalProps {
   isOpen: boolean;
@@ -108,16 +107,16 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
       endOfSelectedDay.setHours(23, 59, 59, 999);
 
       const { data, error } = await supabase
-        .from('Tratamiento')
-        .select('fechaAgendada')
-        .gte('fechaAgendada', startOfSelectedDay.toISOString())
-        .lte('fechaAgendada', endOfSelectedDay.toISOString())
+        .from('tratamiento')
+        .select('fechaagendada')
+        .gte('fechaagendada', startOfSelectedDay.toISOString())
+        .lte('fechaagendada', endOfSelectedDay.toISOString())
         .in('estado', ['pendiente', 'confirmado']);
 
       if (error) throw error;
 
       const occupied = data.map(appointment => {
-        const date = new Date(appointment.fechaAgendada);
+        const date = new Date(appointment.fechaagendada);
         return format(date, 'HH:mm');
       });
 
@@ -147,19 +146,17 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
       }
 
       const appointmentData = {
-        pacienteId: patient.id,
+        pacienteid: patient.id,
         tipo: data.tipo,
         descripcion: data.descripcion || null,
-        fechaAgendada: appointmentDateTime.toISOString(),
+        fechaagendada: appointmentDateTime.toISOString(),
         estado: 'pendiente',
-        piezaDental: data.piezaDental || null,
-        duracionMinutos: data.duracionMinutos || 60,
-        fechaCreacion: new Date().toISOString(),
-        fechaActualizacion: new Date().toISOString()
+        piezadental: data.piezaDental || null,
+        duracionminutos: data.duracionMinutos || 60
       };
 
       const { error } = await supabase
-        .from('Tratamiento')
+        .from('tratamiento')
         .insert([appointmentData]);
 
       if (error) throw error;
@@ -171,7 +168,11 @@ const AppointmentModal: React.FC<AppointmentModalProps> = ({
       setSelectedDate('');
     } catch (error) {
       console.error('Error scheduling appointment:', error);
-      toast.error('Error al agendar la cita');
+      if (error instanceof Error) {
+        toast.error('Error al agendar la cita: ' + error.message);
+      } else {
+        toast.error('Error al agendar la cita');
+      }
     } finally {
       setLoading(false);
     }
