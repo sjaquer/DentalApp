@@ -64,7 +64,11 @@ export const usePendingBills = () => {
     try {
       const { error } = await supabase
         .from('tratamiento')
-        .update({ boletacodigo: boletaCodigo })
+        .update({
+          boletacodigo: boletaCodigo,
+          estado: 'completado',
+          fechacompletado: new Date().toISOString()
+        })
         .eq('id', billId);
 
       if (error) throw error;
